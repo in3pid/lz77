@@ -14,51 +14,54 @@
 
 void compress(int in, int out)
 {
-  window_t window;
+  window_t w;
   char buf[BUFSIZE];
   int length = read(in, buf, BUFSIZE);
-  window_init(&window, BUFSIZE);
-  for (int i = 0; i < length;) {
-    match_t match;
-    bzero(&match, sizeof match);
-    window_match(&window, &match, buf+i, length-i);
+  char *end = buf + length;
+
+  window_init(&w, BUFSIZE);
+
+  for (char *p = buf; p < end;) {
+    match_t match = {0, 0};
+    window_match(&w, &match, p, end);
     if (match.length == 0) {
-      window_append(&window, buf[i]);
+      window_append(&w, *p);
       match_t m = {1, 0};
       write(out, &m, sizeof m);
-      write(out, buf+i, 1);
-      i++;
+      write(out, p, 1);
+      p++;
     }
     else {
       for (int j = 0; j < match.length; j++) {
-	char c = window.buffer[window.position-match.length];
-	window_append(&window, c);
+	window_append(&w, *window_distance(&w, match.distance));
       }
       write(out, &match, sizeof match);
-      i += match.length;
+      p += match.length;
     }
   }
-  window_free(&window);
+  window_free(&w);
 }
 
 void decompress(int in, int out)
 {
   match_t match;
-  window_t window;
+  window_t w;
   int len;
-  window_init(&window, 1024);
+
+  window_init(&w, BUFSIZE);
+
   while ((len = read(in, &match, sizeof match)) > 0) {
     if (match.distance == 0) {
       char c;
       read(in, &c, 1);
       write(out, &c, 1);
-      window_append(&window, c);
+      window_append(&w, c);
     }
     else {
       for (int i = 0; i < match.length; i++) {
-	char c = window.buffer[window.position-match.length];
-	window_append(&window, c);
+	char c = *window_distance(&w, match.length);
 	write(out, &c, 1);
+	window_append(&w, c);
       }
     }		     
   }

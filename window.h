@@ -2,9 +2,9 @@
 #define WINDOW_H
 
 typedef struct window {
-  char *buffer;
-  int length; // even
-  int position;
+  char *start;
+  char *end;
+  char *cursor;
 } window_t;
 
 typedef struct match {
@@ -14,7 +14,9 @@ typedef struct match {
 
 void window_init(window_t *, int);
 void window_free(window_t *);
-void window_copyback(window_t *);
-int window_match(window_t *, match_t *, const char *, int);
+void window_moveback(window_t *);
+void window_append(window_t *, char);
+int window_match(window_t *, match_t *, const char *, const char *);
+const char *window_distance(window_t *, int);
 
 #endif

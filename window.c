@@ -12,53 +12,55 @@ int max(int a, int b)
   return a < b? b: a;
 }
 
-
 void window_init(window_t *w, int length)
 {
-  w->buffer = malloc(length);
-  w->length = length;
-  w->position = 0;
-  memset(w->buffer, 0, w->length);
+  w->start = malloc(length);
+  w->end = w->start+length;
+  w->cursor = w->start;
+  memset(w->start, 0, length);
 }
 
 void window_free(window_t *w)
 {
-  free(w->buffer);
+  free(w->start);
 }
 
 void window_append(window_t *w, char c)
 {
-    w->buffer[w->position++] = c;
-    window_copyback(w);
+    *w->cursor++ = c;
+    window_moveback(w);
 }
 
-void window_copyback(window_t *w)
+void window_moveback(window_t *w)
 {
-  if (w->position < w->length) return;
-  memmove(w->buffer, w->buffer+1, w->length-1);
-  w->position--;
+  if (w->cursor < w->end) return;
+  memmove(w->start, w->start+1, w->end-w->start);
+  w->cursor--;
 }
 
-
-int window_match(window_t *w, match_t *match, const char *data, int length)
+int window_match(window_t *w,
+		 match_t *match,
+		 const char *start,
+		 const char *end)
 {
-  int i = 0;
+  const char *k = w->start;
   memset(match, 0, sizeof match);
-  while (i < w->position) {
-    int j = 0;
-    int len = min(w->position, length);
-    for (; data[j] == w->buffer[i] && len > 0; i++, j++, len--) { }
-    if (j > match->length) {
-      match->length = j;
-      match->distance = w->position-(i-match->length);
+  while (k < w->cursor) {
+    int n = min(w->cursor-k, end-start);
+    const char *p = k;
+    const char *q = start;
+    for (; n && *p == *q; p++, q++, n--) { }
+    if (match->length < p-k) {
+      match->length = p-k;
+      match->distance = w->cursor-k;
     }
-    if (j == 0) break;
+    k++;
   }
   return 0;
 }
 
 const char *window_distance(window_t *w, int distance)
 {
-  const char *p = w->buffer + w->position - distance;
-  return p < w->buffer? w->buffer: p;
+  const char *p = w->cursor-distance;
+  return p < w->start? 0: p;
 }
