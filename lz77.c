@@ -16,27 +16,30 @@ void compress(int in, int out)
 {
   window_t w;
   char buf[BUFSIZE];
-  int length = read(in, buf, BUFSIZE);
-  char *end = buf + length;
+  char *end;
+  int length;
 
   window_init(&w, BUFSIZE);
 
-  for (char *p = buf; p < end;) {
-    match_t match = {0, 0};
-    window_match(&w, &match, p, end);
-    if (match.length == 0) {
-      window_append(&w, *p);
-      match_t m = {1, 0};
-      write(out, &m, sizeof m);
-      write(out, p, 1);
-      p++;
-    }
-    else {
-      for (int j = 0; j < match.length; j++) {
-	window_append(&w, *window_distance(&w, match.distance));
+  while ((length = read(in, buf, BUFSIZE)) > 0) {
+    end = buf + length;
+    for (char *p = buf; p < end;) {
+      match_t match = {0, 0};
+      window_match(&w, &match, p, end);
+      if (match.length == 0) {
+	match_t m = {1, 0};
+	write(out, &m, sizeof m);
+	write(out, p, 1);
+	window_append(&w, *p);
+	p++;
       }
-      write(out, &match, sizeof match);
-      p += match.length;
+      else {
+	for (int j = 0; j < match.length; j++) {
+	  window_append(&w, *window_distance(&w, match.distance));
+	}
+	write(out, &match, sizeof match);
+	p += match.length;
+      }
     }
   }
   window_free(&w);
@@ -50,7 +53,7 @@ void decompress(int in, int out)
 
   window_init(&w, BUFSIZE);
 
-  while ((len = read(in, &match, sizeof match)) > 0) {
+  while ((len = read(in, &match, sizeof match)) == sizeof match) {
     if (match.distance == 0) {
       char c;
       read(in, &c, 1);
@@ -59,11 +62,11 @@ void decompress(int in, int out)
     }
     else {
       for (int i = 0; i < match.length; i++) {
-	char c = *window_distance(&w, match.length);
+	char c = *window_distance(&w, match.distance);
 	write(out, &c, 1);
 	window_append(&w, c);
       }
-    }		     
+    }
   }
 }
 
@@ -90,8 +93,8 @@ int main(int argc, char **argv)
       usage();
     }
   }
-  in = open(argv[1], O_RDONLY);
-  out = open(argv[2], O_RDWR);
+  in = open(argv[optind], O_RDONLY);
+  out = open(argv[optind+1], O_RDWR);
   if (mode_decompress) decompress(in, out);
   else compress(in, out);
   close(in);
