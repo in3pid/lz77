@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include "window.h"
 
 int min(int a, int b)
@@ -11,46 +13,52 @@ int max(int a, int b)
 }
 
 
-void window_init(window_t *window, int length)
+void window_init(window_t *w, int length)
 {
-  window->buffer = malloc(length);
-  window->length = length;
-  window->position = 0;
-  bzero(window->buffer, window->length);
+  w->buffer = malloc(length);
+  w->length = length;
+  w->position = 0;
+  memset(w->buffer, 0, w->length);
 }
 
-void window_free(window_t *window)
+void window_free(window_t *w)
 {
-  free(window->buffer);
+  free(w->buffer);
 }
 
-void window_append(window_t *window, char c)
+void window_append(window_t *w, char c)
 {
-    window->buffer[window->position++] = c;
-    window_copyback(window);
+    w->buffer[w->position++] = c;
+    window_copyback(w);
 }
 
-void window_copyback(window_t *window)
+void window_copyback(window_t *w)
 {
-  if (window->position < window->length) return;
-  bcopy(window->buffer+1, window->buffer, window->length-1);
-  window->position--;
+  if (w->position < w->length) return;
+  memmove(w->buffer, w->buffer+1, w->length-1);
+  w->position--;
 }
 
 
-int window_match(window_t *window, match_t *match, const char *data, int length)
+int window_match(window_t *w, match_t *match, const char *data, int length)
 {
   int i = 0;
-  bzero(match, sizeof match);
-  while (i < window->position) {
+  memset(match, 0, sizeof match);
+  while (i < w->position) {
     int j = 0;
-    int len = min(window->position, length);
-    for (; data[j] == window->buffer[i] && len > 0; i++, j++, len--) { }
+    int len = min(w->position, length);
+    for (; data[j] == w->buffer[i] && len > 0; i++, j++, len--) { }
     if (j > match->length) {
       match->length = j;
-      match->distance = window->position-(i-match->length);
+      match->distance = w->position-(i-match->length);
     }
     if (j == 0) break;
   }
   return 0;
+}
+
+const char *window_distance(window_t *w, int distance)
+{
+  const char *p = w->buffer + w->position - distance;
+  return p < w->buffer? w->buffer: p;
 }

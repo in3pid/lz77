@@ -7,6 +7,11 @@ typedef struct window {
   int position;
 } window_t;
 
+typedef struct match {
+  int length;
+  int distance;
+} match_t;
+
 void window_init(window_t *, int);
 void window_free(window_t *);
 void window_copyback(window_t *);
