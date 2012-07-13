@@ -64,3 +64,11 @@ const char *window_distance(window_t *w, int distance)
   const char *p = w->cursor-distance;
   return p < w->start? 0: p;
 }
+
+void window_append_match(window_t *w, const match_t *m)
+{
+  int n = m->length;
+  while (n--) {
+    window_append(w, *window_distance(w, m->distance));
+  }
+}

@@ -23,16 +23,14 @@ void compress(int in, int out)
       match_t match = {0, 0};
       window_match(&w, &match, p, end);
       if (match.length == 0) {
+	window_append(&w, *p);
 	match_t m = {1, 0};
 	write(out, &m, sizeof m);
 	write(out, p, 1);
-	window_append(&w, *p);
 	p++;
       }
       else {
-	for (int j = 0; j < match.length; j++) {
-	  window_append(&w, *window_distance(&w, match.distance));
-	}
+	window_append_match(&w, &match);
 	write(out, &match, sizeof match);
 	p += match.length;
       }
@@ -57,11 +55,9 @@ void decompress(int in, int out)
       window_append(&w, c);
     }
     else {
-      for (int i = 0; i < match.length; i++) {
-	char c = *window_distance(&w, match.distance);
-	write(out, &c, 1);
-	window_append(&w, c);
-      }
+     const char *p = window_distance(&w, match.distance);
+     write(out, p, match.length);
+     window_append_match(&w, &match);
     }
   }
 }

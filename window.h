@@ -18,5 +18,5 @@ void window_moveback(window_t *);
 void window_append(window_t *, char);
 int window_match(window_t *, match_t *, const char *, const char *);
 const char *window_distance(window_t *, int);
-
+void window_append_match(window_t *, const match_t *);
 #endif
