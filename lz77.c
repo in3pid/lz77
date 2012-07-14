@@ -62,6 +62,7 @@ void decompress(int in, int out)
      window_append_match(&w, &m);
     }
   }
+  window_free(&w);
 }
 
 void usage(void)
