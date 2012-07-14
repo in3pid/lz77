@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
 #include "lz77.h"
 #include "window.h"
 
@@ -10,29 +11,29 @@
 
 void compress(int in, int out)
 {
+  match_t m;
   window_t w;
-  char buf[BUFSIZE];
+  char *p;
   char *end;
+  char buf[BUFSIZE];
   int length;
 
   window_init(&w, BUFSIZE);
 
   while ((length = read(in, buf, BUFSIZE)) > 0) {
-    end = buf + length;
-    for (char *p = buf; p < end;) {
-      match_t match = {0, 0};
-      window_match(&w, &match, p, end);
-      if (match.length == 0) {
-	window_append(&w, *p);
-	match_t m = {1, 0};
-	write(out, &m, sizeof m);
+    p = buf;
+    end = buf+length;
+    while (p < end) {
+      window_match(&w, &m, p, end);
+      write(out, &m, sizeof m);
+      if (m.length == 0) {
 	write(out, p, 1);
+	window_append(&w, *p);
 	p++;
       }
       else {
-	window_append_match(&w, &match);
-	write(out, &match, sizeof match);
-	p += match.length;
+	window_append_match(&w, &m);
+	p += m.length;
       }
     }
   }
@@ -41,30 +42,31 @@ void compress(int in, int out)
 
 void decompress(int in, int out)
 {
-  match_t match;
+  match_t m;
   window_t w;
   int len;
+  char c;
+  const char *p;
 
   window_init(&w, BUFSIZE);
 
-  while ((len = read(in, &match, sizeof match)) == sizeof match) {
-    if (match.distance == 0) {
-      char c;
+  while ((len = read(in, &m, sizeof m)) == sizeof m) {
+    if (m.length == 0) {
       read(in, &c, 1);
       write(out, &c, 1);
       window_append(&w, c);
     }
     else {
-     const char *p = window_distance(&w, match.distance);
-     write(out, p, match.length);
-     window_append_match(&w, &match);
+     p = window_distance(&w, m.distance);
+     write(out, p, m.length);
+     window_append_match(&w, &m);
     }
   }
 }
 
 void usage(void)
 {
-
+  printf("usage\n");
 }
 
 int main(int argc, char **argv)
@@ -72,10 +74,6 @@ int main(int argc, char **argv)
   int mode_decompress = 0;
   int in, out;
   int opt;
-  if (argc < 3) {
-    usage();
-    return 1;
-  }
   while ((opt = getopt(argc, argv, "d")) != -1) {
     switch (opt) {
     case 'd':
@@ -83,7 +81,12 @@ int main(int argc, char **argv)
       break;
     default:
       usage();
+      return 1;
     }
+  }
+  if (argc < optind+2) {
+    usage();
+    return 1;
   }
   in = open(argv[optind], O_RDONLY);
   out = open(argv[optind+1], O_RDWR);
