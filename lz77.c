@@ -4,10 +4,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "lz77.h"
 #include "window.h"
 
 #define BUFSIZE 1024
+
 
 void compress(int in, int out)
 {
@@ -25,7 +27,9 @@ void compress(int in, int out)
     end = buf+length;
     while (p < end) {
       window_match(&w, &m, p, end);
-      write(out, &m, sizeof m);
+      uint16_t a = packed_match(&m);
+      write(out, &a, sizeof a);
+      //      write(out, &m, sizeof m);
       if (m.length == 0) {
 	write(out, p, 1);
 	window_append(&w, *p);
@@ -35,6 +39,7 @@ void compress(int in, int out)
 	window_append_match(&w, &m);
 	p += m.length;
       }
+      window_flush(&w);
     }
   }
   window_free(&w);
@@ -43,6 +48,7 @@ void compress(int in, int out)
 void decompress(int in, int out)
 {
   match_t m;
+  uint16_t a;
   window_t w;
   int len;
   char c;
@@ -50,18 +56,22 @@ void decompress(int in, int out)
 
   window_init(&w, BUFSIZE);
 
-  while ((len = read(in, &m, sizeof m)) == sizeof m) {
+  while ((len = read(in, &a, sizeof a)) == sizeof a) {
+    unpack_match(&m, a);
     if (m.length == 0) {
       read(in, &c, 1);
-      write(out, &c, 1);
       window_append(&w, c);
     }
     else {
      p = window_distance(&w, m.distance);
-     write(out, p, m.length);
      window_append_match(&w, &m);
     }
+    if (window_should_flush(&w)) {
+      write(out, w.start, w.block_size);
+      window_flush(&w);
+    }
   }
+  write(out, w.start, w.cursor-w.start);
   window_free(&w);
 }
 
@@ -72,6 +82,11 @@ void usage(void)
 
 int main(int argc, char **argv)
 {
+  match_t match = {1, 2};
+  match_t apa = {0, 0};
+  uint16_t m = packed_match(&match);
+  unpack_match(&apa, m);
+
   int mode_decompress = 0;
   int in, out;
   int opt;
@@ -90,7 +105,7 @@ int main(int argc, char **argv)
     return 1;
   }
   in = open(argv[optind], O_RDONLY);
-  out = open(argv[optind+1], O_RDWR);
+  out = creat(argv[optind+1], 0644);
   if (mode_decompress) decompress(in, out);
   else compress(in, out);
   close(in);
