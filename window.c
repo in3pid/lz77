@@ -33,7 +33,7 @@ match_t window_match(window_t *w,
 {
   match_t m = 0;
   // distance is encoded with 10 bits
-  const char *a = w->cursor-match_length_max;
+  const char *a = w->cursor-match_distance_max;
   const char *k = w->start < a? a: w->start;
   while (k < w->cursor) {
     // and length with 6 bits
@@ -42,7 +42,6 @@ match_t window_match(window_t *w,
     const char *q = start;
     while (n && *p == *q) { p++; q++; n--; }
     if (match_length(m) < p-k)
-      if (p-k == 1024) printf("1024\n");
       m = match_pack(w->cursor-k, p-k);
     k++;
   }
