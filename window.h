@@ -38,7 +38,10 @@ void window_append_match(window_t *w, const match_t *m);
 int window_should_flush(window_t *w);
 void window_flush(window_t *w);
 
-uint16_t packed_match(const match_t *m);
-void unpack_match(match_t *m, uint16_t n);
+uint16_t match_pack(const match_t *m);
+void match_unpack(match_t *m, uint16_t n);
+
+void write_match(int f, match_t *m);
+int read_match(int f, match_t *m);
 
 #endif

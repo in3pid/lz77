@@ -27,9 +27,7 @@ void compress(int in, int out)
     end = buf+length;
     while (p < end) {
       window_match(&w, &m, p, end);
-      uint16_t a = packed_match(&m);
-      write(out, &a, sizeof a);
-      //      write(out, &m, sizeof m);
+      write_match(out, &m);
       if (m.length == 0) {
 	write(out, p, 1);
 	window_append(&w, *p);
@@ -48,23 +46,16 @@ void compress(int in, int out)
 void decompress(int in, int out)
 {
   match_t m;
-  uint16_t a;
   window_t w;
-  int len;
-  char c;
-  const char *p;
-
   window_init(&w, BUFSIZE);
-
-  while ((len = read(in, &a, sizeof a)) == sizeof a) {
-    unpack_match(&m, a);
+  while (read_match(in, &m)) { 
     if (m.length == 0) {
+      char c;
       read(in, &c, 1);
       window_append(&w, c);
     }
     else {
-     p = window_distance(&w, m.distance);
-     window_append_match(&w, &m);
+      window_append_match(&w, &m);
     }
     if (window_should_flush(&w)) {
       write(out, w.start, w.block_size);
@@ -82,11 +73,6 @@ void usage(void)
 
 int main(int argc, char **argv)
 {
-  match_t match = {1, 2};
-  match_t apa = {0, 0};
-  uint16_t m = packed_match(&match);
-  unpack_match(&apa, m);
-
   int mode_decompress = 0;
   int in, out;
   int opt;

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "window.h"
 
 static int min(int a, int b)
@@ -30,14 +31,16 @@ int window_match(window_t *w,
 		 const char *start,
 		 const char *end)
 {
+  // distance is encoded with 10 bits
   const char *a = w->cursor-w->block_size;
   const char *k = w->start < a? a: w->start;
   memset(m, 0, sizeof *m);
   while (k < w->cursor) {
-    int n = min(w->cursor-k, end-start);
+    // and length with 6 bits
+    int n = min(63, min(w->cursor-k, end-start));
     const char *p = k;
     const char *q = start;
-    for (; n && *p == *q; p++, q++, n--) { }
+    while (n && *p == *q) { p++; q++; n--; }
     if (m->length < p-k) {
       m->length = p-k;
       m->distance = w->cursor-k;
@@ -79,15 +82,29 @@ void window_flush(window_t *w)
 }
 
 
-uint16_t packed_match(const match_t *m)
+uint16_t match_pack(const match_t *m)
 {
   uint16_t d = m->distance & 1023;
-  uint16_t e = m->length << 10;
+  uint16_t e = (m->length & 63) << 10;
   return d | e;
 }
 
-void unpack_match(match_t *m, uint16_t n)
+void match_unpack(match_t *m, uint16_t n)
 {
   m->distance = n & 1023;
   m->length = n >> 10;
+}
+
+void write_match(int f, match_t *m)
+{
+  uint16_t a = match_pack(m);
+  write(f, &a, sizeof a);
+}
+
+int read_match(int f, match_t *m)
+{
+  uint16_t a;
+  int r = read(f, &a, sizeof a);
+  match_unpack(m, a);
+  return r == sizeof a;
 }
