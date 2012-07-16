@@ -10,6 +10,17 @@
 
 #define BUFSIZE 1024
 
+void write_tab(int f, char *tab, int n)
+{
+  match_t a = match_pack(0, n);
+  write(f, &a, sizeof a);
+  write(f, tab, n);
+}
+
+int read_tab(int f, char *tab, int n)
+{
+  return read(f, tab, n) == n;
+}
 
 void compress(int in, int out)
 {
@@ -19,6 +30,8 @@ void compress(int in, int out)
   char *end;
   char buf[BUFSIZE];
   int length;
+  char tab[64];
+  int n = 0;
 
   window_init(&w, BUFSIZE);
 
@@ -26,20 +39,29 @@ void compress(int in, int out)
     p = buf;
     end = buf+length;
     while (p < end) {
-      window_match(&w, &m, p, end);
-      write_match(out, &m);
-      if (m.length == 0) {
-	write(out, p, 1);
+      m = window_match(&w, p, end);
+      if (match_length(m) <= 1) {
+	if (n >= match_length_max) {
+	  write_tab(out, tab, match_length_max);
+	  n = 0;
+	}
+	tab[n++] = *p;
 	window_append(&w, *p);
 	p++;
       }
       else {
-	window_append_match(&w, &m);
-	p += m.length;
+	if (n) {
+	  write_tab(out, tab, n);
+	  n = 0;
+	}
+	write(out, &m, sizeof m);
+	window_append_match(&w, m);
+	p += match_length(m);
       }
       window_flush(&w);
     }
   }
+  if (n) write_tab(out, tab, n);
   window_free(&w);
 }
 
@@ -48,21 +70,24 @@ void decompress(int in, int out)
   match_t m;
   window_t w;
   window_init(&w, BUFSIZE);
-  while (read_match(in, &m)) { 
-    if (m.length == 0) {
-      char c;
-      read(in, &c, 1);
-      window_append(&w, c);
+  while (read(in, &m, sizeof m) == sizeof m) { 
+    if (match_distance(m) == 0) {
+      int n = match_length(m);
+      char tab[64];
+      if (!read_tab(in, tab, n)) {
+	printf("illegal state\n");
+      }
+      window_append_tab(&w, tab, n);
     }
     else {
-      window_append_match(&w, &m);
+      window_append_match(&w, m);
     }
     if (window_should_flush(&w)) {
       write(out, w.start, w.block_size);
       window_flush(&w);
     }
   }
-  write(out, w.start, w.cursor-w.start);
+  if (0 < w.cursor-w.start) write(out, w.start, w.cursor-w.start);
   window_free(&w);
 }
 
